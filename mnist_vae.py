@@ -3,6 +3,8 @@ from rebar_tf import *
 import tensorflow as tf
 import numpy as np
 import os
+
+
 def encoder(x):
     if len(gs(x)) > 2:
         p = np.prod(gs(x)[1:])
@@ -12,11 +14,13 @@ def encoder(x):
     log_alpha = tf.layers.dense(h2, 200, name="encoder_out")
     return log_alpha
 
+
 def decoder(b):
     h1 = tf.layers.dense(2. * b - 1., 200, tf.nn.relu, name="decoder_1")
     h2 = tf.layers.dense(h1, 200, tf.nn.relu, name="decoder_2")
     log_alpha = tf.layers.dense(h2, 784, name="decoder_out")
     return log_alpha
+
 
 def Q_func(z):
     h1 = tf.layers.dense(2. * z - 1., 50, tf.nn.relu, name="q_1", use_bias=True)
@@ -43,10 +47,14 @@ if __name__ == "__main__":
     lr = .0001
     dataset = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
+
     def to_vec(t):
         return tf.reshape(t, [-1])
+
+
     def from_vec(t):
         return tf.reshape(t, [batch_size, -1])
+
 
     x = tf.placeholder(tf.float32, [batch_size, 784])
     x_im = tf.reshape(x, [batch_size, 28, 28, 1])
@@ -55,6 +63,8 @@ if __name__ == "__main__":
     log_alpha = encoder(x_binary)
     log_alpha_v = tf.reshape(log_alpha, [-1])
     evals = 0
+
+
     def loss(b):
         log_q_b_given_x = bernoulli_loglikelihood(b, log_alpha)
         log_q_b_given_x = tf.reduce_mean(tf.reduce_sum(log_q_b_given_x, axis=1))
@@ -62,7 +72,7 @@ if __name__ == "__main__":
         log_p_b = bernoulli_loglikelihood(b, tf.zeros_like(log_alpha))
         log_p_b = tf.reduce_mean(tf.reduce_sum(log_p_b, axis=1))
 
-        with tf.variable_scope("decoder", reuse=evals>0):
+        with tf.variable_scope("decoder", reuse=evals > 0):
             log_alpha_x_batch = decoder(b)
         log_p_x_given_b = bernoulli_loglikelihood(x_binary, log_alpha_x_batch)
         log_p_x_given_b = tf.reduce_mean(tf.reduce_sum(log_p_x_given_b, axis=1))
@@ -76,6 +86,8 @@ if __name__ == "__main__":
             tf.summary.image("x_pred", log_theta)
         evals += 1
         return -tf.expand_dims(log_p_x_given_b + log_p_b - log_q_b_given_x, 0)
+
+
     if relaxed:
         rebar_optimizer = RelaxedREBAROptimizer(sess, loss, Q_func, log_alpha=log_alpha, learning_rate=lr)
     else:
@@ -99,7 +111,7 @@ if __name__ == "__main__":
         gradvars = inf_gradvars + gen_gradvars + rebar_optimizer.variance_gradvars
     for g, v in gradvars:
         tf.summary.histogram(v.name, v)
-        tf.summary.histogram(v.name+"_grad", g)
+        tf.summary.histogram(v.name + "_grad", g)
 
     if reinforce:
         with tf.control_dependencies([gen_train_op, inf_train_op]):
@@ -119,4 +131,3 @@ if __name__ == "__main__":
             print(i, loss[0])
         else:
             loss, _ = sess.run([gen_loss, train_op], feed_dict={x: batch_xs})
-
